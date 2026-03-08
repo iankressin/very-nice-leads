@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { sql } from 'drizzle-orm';
+import { sql, notInArray } from 'drizzle-orm';
 import { monitoredChannel } from './schema.js';
 import { logger } from '../utils/logger.js';
 import type { AppDatabase } from './client.js';
@@ -20,12 +20,22 @@ export function loadChannelsConfig(
 
 /**
  * Seed the monitored_channel table from the channels config file.
- * Uses upsert (INSERT OR IGNORE) — adds new channels but does not remove existing ones.
+ * Adds new channels and deactivates channels no longer in the config.
  */
 export async function seedChannels(
   db: AppDatabase,
   channels: ChannelConfig[],
 ): Promise<void> {
+  const configUsernames = channels.map((c) => c.username);
+
+  // Deactivate channels removed from config
+  if (configUsernames.length > 0) {
+    await db
+      .update(monitoredChannel)
+      .set({ active: false })
+      .where(notInArray(monitoredChannel.channelUsername, configUsernames));
+  }
+
   let added = 0;
   for (const channel of channels) {
     const existing = await db
