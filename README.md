@@ -1,4 +1,6 @@
-# Inky Minaj — Blockchain News Lead Bot
+# Very Nice Leads — Blockchain News Lead Bot
+
+<img src="./very-nice-leads-pfp.jpg" width="160" alt="Very Nice Leads bot" />
 
 Monitors Telegram channels for blockchain/DeFi news and sends scored alerts to subscribers via a Telegram bot.
 
