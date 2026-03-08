@@ -50,8 +50,8 @@ export async function dispatchNotification(
 
   const messageHtml = formatAlert(payload);
   const keyboard = new InlineKeyboard()
-    .text('\u2705 Accurate rating', `accurate:${payload.processedMessageId}`)
-    .text('\u274C Inaccurate rating', `inaccurate:${payload.processedMessageId}`);
+    .text('\u2705 Confirm score', `accurate:${payload.processedMessageId}`)
+    .text('\u270F\uFE0F Rescore', `inaccurate:${payload.processedMessageId}`);
 
   // Determine target chat IDs
   let chatIds: string[];
@@ -104,7 +104,7 @@ export async function dispatchNotification(
 
 export function formatAlert(payload: NotificationPayload): string {
   const scoreEmoji =
-    payload.score >= 8 ? '\uD83D\uDD34' : payload.score >= 6 ? '\uD83D\uDFE1' : '\uD83D\uDFE2';
+    payload.score >= 9 ? '\uD83D\uDFE2' : payload.score >= 7 ? '\uD83D\uDFE1' : '\uD83D\uDD34';
 
   // Build deep link if messageId is available
   // Strip leading @ from channel username if present
@@ -114,7 +114,7 @@ export function formatAlert(payload: NotificationPayload): string {
     : '';
 
   return [
-    `${scoreEmoji} <b>New Lead Detected</b> (Score: ${payload.score}/10)`,
+    `${scoreEmoji} <b>New Lead Detected</b> (Relevance Score: ${payload.score}/10)`,
     '',
     `<i>"${escapeHtml(truncate(payload.messageText, 200))}"</i>`,
     '',
