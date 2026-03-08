@@ -30,12 +30,11 @@ export function setDbInstance(db: AppDatabase): void {
 /**
  * Get all active subscriber chat IDs from the database.
  */
-function getActiveSubscriberChatIds(db: AppDatabase): string[] {
-  const rows = db
+async function getActiveSubscriberChatIds(db: AppDatabase): Promise<string[]> {
+  const rows = await db
     .select({ chatId: subscriber.chatId })
     .from(subscriber)
-    .where(eq(subscriber.active, true))
-    .all();
+    .where(eq(subscriber.active, true));
   return rows.map((r) => r.chatId);
 }
 
@@ -60,7 +59,7 @@ export async function dispatchNotification(
     // Backward compat: single chatId provided
     chatIds = [payload.chatId];
   } else if (dbInstance) {
-    chatIds = getActiveSubscriberChatIds(dbInstance);
+    chatIds = await getActiveSubscriberChatIds(dbInstance);
   } else {
     logger.warn('No DB instance set and no chatId in payload; cannot dispatch');
     return;

@@ -1,10 +1,11 @@
 {
-  "name": "inky-minaj-bot",
+  "name": "very-nice-leads-bot",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "tsx src/index.ts",
+    "start": "tsx src/index.ts",
     "auth": "tsx src/scripts/auth.ts",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
@@ -15,26 +16,24 @@
     "@ai-sdk/anthropic": "^1.2.0",
     "@mozilla/readability": "^0.6.0",
     "ai": "^4.3.0",
-    "better-sqlite3": "^11.8.0",
+    "@libsql/client": "^0.14.0",
     "cheerio": "^1.2.0",
     "dotenv": "^16.4.0",
     "drizzle-orm": "^0.39.0",
     "grammy": "^1.35.0",
     "telegram": "^2.26.0",
+    "tsx": "^4.19.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.0",
     "@types/node": "^22.0.0",
     "drizzle-kit": "^0.30.0",
-    "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   },
   "packageManager": "pnpm@10.17.0+sha512.fce8a3dd29a4ed2ec566fb53efbb04d8c44a0f05bc6f24a73046910fb9c3ce7afa35a0980500668fa3573345bd644644fa98338fa168235c80f4aa17aa17fbef",
   "pnpm": {
     "onlyBuiltDependencies": [
-      "better-sqlite3",
       "esbuild"
     ]
   }

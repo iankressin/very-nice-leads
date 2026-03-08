@@ -25,6 +25,7 @@ export const config = {
   // Thresholds
   relevanceThreshold: Number(process.env.RELEVANCE_THRESHOLD || '5'),
 
-  // Database
-  databaseUrl: process.env.DATABASE_URL || './data/bot.db',
+  // Turso database
+  tursoUrl: process.env.TURSO_DATABASE_URL!,
+  tursoAuthToken: process.env.TURSO_AUTH_TOKEN!,
 };

@@ -62,22 +62,18 @@ function registerStartCommand(
     if (isAdmin) {
       // Auto-subscribe admin
       try {
-        // Upsert: insert or re-activate
-        const existing = db
+        const existing = await db
           .select()
           .from(subscriber)
-          .where(eq(subscriber.chatId, chatId))
-          .all();
+          .where(eq(subscriber.chatId, chatId));
 
         if (existing.length > 0) {
-          db.update(subscriber)
+          await db.update(subscriber)
             .set({ active: true })
-            .where(eq(subscriber.chatId, chatId))
-            .run();
+            .where(eq(subscriber.chatId, chatId));
         } else {
-          db.insert(subscriber)
-            .values({ chatId, active: true })
-            .run();
+          await db.insert(subscriber)
+            .values({ chatId, active: true });
         }
 
         logger.info('Admin auto-subscribed', { userId, chatId });
@@ -93,12 +89,11 @@ function registerStartCommand(
       }
     } else {
       // Non-admin: send approval request to all admin subscribers
-      const adminSubscribers = db
+      const allActive = await db
         .select()
         .from(subscriber)
-        .where(eq(subscriber.active, true))
-        .all()
-        .filter((s) => adminIds.includes(s.chatId));
+        .where(eq(subscriber.active, true));
+      const adminSubscribers = allActive.filter((s) => adminIds.includes(s.chatId));
 
       if (adminSubscribers.length === 0) {
         await ctx.reply(
@@ -161,25 +156,20 @@ function registerApprovalCallbacks(bot: Bot, db: AppDatabase): void {
     const chatId = match[2];
 
     try {
-      // Upsert subscriber
-      const existing = db
+      const existing = await db
         .select()
         .from(subscriber)
-        .where(eq(subscriber.chatId, chatId))
-        .all();
+        .where(eq(subscriber.chatId, chatId));
 
       if (existing.length > 0) {
-        db.update(subscriber)
+        await db.update(subscriber)
           .set({ active: true })
-          .where(eq(subscriber.chatId, chatId))
-          .run();
+          .where(eq(subscriber.chatId, chatId));
       } else {
-        db.insert(subscriber)
-          .values({ chatId, active: true })
-          .run();
+        await db.insert(subscriber)
+          .values({ chatId, active: true });
       }
 
-      // Notify the user
       try {
         await bot.api.sendMessage(
           chatId,
@@ -193,7 +183,6 @@ function registerApprovalCallbacks(bot: Bot, db: AppDatabase): void {
         });
       }
 
-      // Edit the admin's approval message
       await ctx.editMessageText(
         `\u2705 Approved subscription for user ${userId} (chat: ${chatId})`,
       );
@@ -215,7 +204,6 @@ function registerApprovalCallbacks(bot: Bot, db: AppDatabase): void {
     const chatId = match[2];
 
     try {
-      // Notify the user of rejection
       try {
         await bot.api.sendMessage(
           chatId,
@@ -229,7 +217,6 @@ function registerApprovalCallbacks(bot: Bot, db: AppDatabase): void {
         });
       }
 
-      // Edit the admin's message
       await ctx.editMessageText(
         `\u274C Denied subscription for user ${userId} (chat: ${chatId})`,
       );
@@ -260,20 +247,17 @@ function registerFeedbackCallbacks(bot: Bot, db: AppDatabase): void {
     const userTgId = ctx.from?.id?.toString() || '';
 
     try {
-      // Look up the processed message
-      const [msg] = db
+      const [msg] = await db
         .select()
         .from(processedMessage)
-        .where(eq(processedMessage.id, processedMessageId))
-        .all();
+        .where(eq(processedMessage.id, processedMessageId));
 
       if (!msg) {
         await ctx.answerCallbackQuery({ text: 'This message is no longer available.' });
         return;
       }
 
-      // Check for duplicate review
-      const existingReview = db
+      const existingReview = await db
         .select()
         .from(messageReview)
         .where(
@@ -281,8 +265,7 @@ function registerFeedbackCallbacks(bot: Bot, db: AppDatabase): void {
             eq(messageReview.processedMessageId, processedMessageId),
             eq(messageReview.userTgId, userTgId),
           ),
-        )
-        .all();
+        );
 
       if (existingReview.length > 0) {
         await ctx.answerCallbackQuery({ text: 'You have already rated this message.' });
@@ -292,8 +275,7 @@ function registerFeedbackCallbacks(bot: Bot, db: AppDatabase): void {
       const botRating = msg.relevanceScore ?? 0;
       const userTgName = getUserDisplayName(ctx.from);
 
-      // Save review with userRating = botRating
-      db.insert(messageReview)
+      await db.insert(messageReview)
         .values({
           processedMessageId,
           message: msg.messageText || '',
@@ -302,10 +284,8 @@ function registerFeedbackCallbacks(bot: Bot, db: AppDatabase): void {
           userTgId,
           userTgName,
           sourceChannel: msg.channelId,
-        })
-        .run();
+        });
 
-      // Remove the inline keyboard but keep the original message intact
       await ctx.editMessageReplyMarkup({ reply_markup: undefined });
       await ctx.answerCallbackQuery({ text: 'Thanks! Rating confirmed.' });
 
@@ -329,19 +309,16 @@ function registerFeedbackCallbacks(bot: Bot, db: AppDatabase): void {
     const processedMessageId = Number(match[1]);
 
     try {
-      // Verify the processed message still exists
-      const [msg] = db
+      const [msg] = await db
         .select()
         .from(processedMessage)
-        .where(eq(processedMessage.id, processedMessageId))
-        .all();
+        .where(eq(processedMessage.id, processedMessageId));
 
       if (!msg) {
         await ctx.answerCallbackQuery({ text: 'This message is no longer available.' });
         return;
       }
 
-      // Build two rows of score buttons: 0-5 and 6-10
       const keyboard = new InlineKeyboard();
       for (let i = 0; i <= 5; i++) {
         keyboard.text(String(i), `score:${processedMessageId}:${i}`);
@@ -374,20 +351,17 @@ function registerFeedbackCallbacks(bot: Bot, db: AppDatabase): void {
     const userTgId = ctx.from?.id?.toString() || '';
 
     try {
-      // Look up the processed message
-      const [msg] = db
+      const [msg] = await db
         .select()
         .from(processedMessage)
-        .where(eq(processedMessage.id, processedMessageId))
-        .all();
+        .where(eq(processedMessage.id, processedMessageId));
 
       if (!msg) {
         await ctx.answerCallbackQuery({ text: 'This message is no longer available.' });
         return;
       }
 
-      // Check for duplicate review
-      const existingReview = db
+      const existingReview = await db
         .select()
         .from(messageReview)
         .where(
@@ -395,8 +369,7 @@ function registerFeedbackCallbacks(bot: Bot, db: AppDatabase): void {
             eq(messageReview.processedMessageId, processedMessageId),
             eq(messageReview.userTgId, userTgId),
           ),
-        )
-        .all();
+        );
 
       if (existingReview.length > 0) {
         await ctx.answerCallbackQuery({ text: 'You have already rated this message.' });
@@ -406,8 +379,7 @@ function registerFeedbackCallbacks(bot: Bot, db: AppDatabase): void {
       const botRating = msg.relevanceScore ?? 0;
       const userTgName = getUserDisplayName(ctx.from);
 
-      // Save review with user's selected score
-      db.insert(messageReview)
+      await db.insert(messageReview)
         .values({
           processedMessageId,
           message: msg.messageText || '',
@@ -416,10 +388,8 @@ function registerFeedbackCallbacks(bot: Bot, db: AppDatabase): void {
           userTgId,
           userTgName,
           sourceChannel: msg.channelId,
-        })
-        .run();
+        });
 
-      // Remove the inline keyboard but keep the original message intact
       await ctx.editMessageReplyMarkup({ reply_markup: undefined });
       await ctx.answerCallbackQuery({ text: `Thanks! Your rating: ${userScore}/10` });
 

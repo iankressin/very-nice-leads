@@ -106,7 +106,7 @@ export async function handleNewMessage(
     const dispatched = result.relevance_score > threshold;
 
     // Persist to DB
-    const [inserted] = deps.db
+    const [inserted] = await deps.db
       .insert(processedMessage)
       .values({
         channelId: channel,
@@ -116,8 +116,7 @@ export async function handleNewMessage(
         summary: result.summary,
         dispatched,
       })
-      .returning()
-      .all();
+      .returning();
 
     logger.info('Message scored', {
       messageId: message.id,

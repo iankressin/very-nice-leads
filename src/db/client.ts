@@ -1,11 +1,10 @@
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import Database from 'better-sqlite3';
+import { drizzle } from 'drizzle-orm/libsql';
+import { createClient } from '@libsql/client';
 import * as schema from './schema.js';
 
 export type AppDatabase = ReturnType<typeof createDb>;
 
-export function createDb(url: string) {
-  const sqlite = new Database(url);
-  sqlite.pragma('journal_mode = WAL');
-  return drizzle(sqlite, { schema });
+export function createDb(url: string, authToken: string) {
+  const client = createClient({ url, authToken });
+  return drizzle(client, { schema });
 }

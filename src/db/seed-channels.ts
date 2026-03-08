@@ -22,25 +22,23 @@ export function loadChannelsConfig(
  * Seed the monitored_channel table from the channels config file.
  * Uses upsert (INSERT OR IGNORE) — adds new channels but does not remove existing ones.
  */
-export function seedChannels(
+export async function seedChannels(
   db: AppDatabase,
   channels: ChannelConfig[],
-): void {
+): Promise<void> {
   let added = 0;
   for (const channel of channels) {
-    const existing = db
+    const existing = await db
       .select()
       .from(monitoredChannel)
-      .where(sql`${monitoredChannel.channelUsername} = ${channel.username}`)
-      .all();
+      .where(sql`${monitoredChannel.channelUsername} = ${channel.username}`);
 
     if (existing.length === 0) {
-      db.insert(monitoredChannel)
+      await db.insert(monitoredChannel)
         .values({
           channelUsername: channel.username,
           displayName: channel.displayName ?? null,
-        })
-        .run();
+        });
       added++;
     }
   }
@@ -54,12 +52,11 @@ export function seedChannels(
 /**
  * Get all active channels from the DB.
  */
-export function getActiveChannels(
+export async function getActiveChannels(
   db: AppDatabase,
-): Array<{ id: number; channelUsername: string; displayName: string | null }> {
+): Promise<Array<{ id: number; channelUsername: string; displayName: string | null }>> {
   return db
     .select()
     .from(monitoredChannel)
-    .where(sql`${monitoredChannel.active} = 1`)
-    .all();
+    .where(sql`${monitoredChannel.active} = 1`);
 }

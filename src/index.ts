@@ -17,13 +17,13 @@ import {
 import { sql } from 'drizzle-orm';
 
 async function main() {
-  logger.info('Starting Inky Minaj bot');
+  logger.info('Starting Very Nice Leads bot');
 
   // Initialize database
-  const db = createDb(config.databaseUrl);
+  const db = createDb(config.tursoUrl, config.tursoAuthToken);
 
-  // Create tables if they don't exist (Phase 1: direct DDL instead of migrations)
-  db.run(sql`CREATE TABLE IF NOT EXISTS processed_message (
+  // Create tables if they don't exist
+  await db.run(sql`CREATE TABLE IF NOT EXISTS processed_message (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     channel_id TEXT NOT NULL,
     message_id INTEGER NOT NULL,
@@ -33,7 +33,7 @@ async function main() {
     dispatched INTEGER DEFAULT 0,
     processed_at INTEGER DEFAULT (unixepoch())
   )`);
-  db.run(sql`CREATE TABLE IF NOT EXISTS message_review (
+  await db.run(sql`CREATE TABLE IF NOT EXISTS message_review (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     processed_message_id INTEGER,
     message TEXT NOT NULL,
@@ -44,14 +44,14 @@ async function main() {
     source_channel TEXT,
     created_at INTEGER DEFAULT (unixepoch())
   )`);
-  db.run(sql`CREATE TABLE IF NOT EXISTS monitored_channel (
+  await db.run(sql`CREATE TABLE IF NOT EXISTS monitored_channel (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     channel_username TEXT NOT NULL UNIQUE,
     display_name TEXT,
     active INTEGER DEFAULT 1,
     added_at INTEGER DEFAULT (unixepoch())
   )`);
-  db.run(sql`CREATE TABLE IF NOT EXISTS subscriber (
+  await db.run(sql`CREATE TABLE IF NOT EXISTS subscriber (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     chat_id TEXT NOT NULL UNIQUE,
     active INTEGER DEFAULT 1,
@@ -63,7 +63,7 @@ async function main() {
   // Seed channels from config file
   try {
     const channelsConfig = loadChannelsConfig();
-    seedChannels(db, channelsConfig);
+    await seedChannels(db, channelsConfig);
   } catch (error) {
     logger.warn('Could not load channels config; skipping channel seeding', {
       error: error instanceof Error ? error.message : String(error),
@@ -92,7 +92,7 @@ async function main() {
   );
 
   // Register message handlers for all active channels from DB
-  const activeChannels = getActiveChannels(db);
+  const activeChannels = await getActiveChannels(db);
 
   if (activeChannels.length === 0) {
     logger.warn('No active channels to monitor');
@@ -104,7 +104,7 @@ async function main() {
     });
   }
 
-  logger.info('Inky Minaj bot is running', {
+  logger.info('Very Nice Leads bot is running', {
     channelCount: activeChannels.length,
     channels: activeChannels.map((c) => c.channelUsername),
     threshold: config.relevanceThreshold,
