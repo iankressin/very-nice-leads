@@ -32,6 +32,26 @@ export function registerMessageHandler(
 }
 
 /**
+ * Register a catch-all debug handler to log ALL incoming messages (no chat filter).
+ * Remove this once the channel filtering issue is diagnosed.
+ */
+export function registerDebugCatchAllHandler(client: TelegramClient): void {
+  client.addEventHandler(
+    (event: NewMessageEvent) => {
+      const msg = event.message;
+      const peerId = (msg as any).peerId;
+      logger.info('[DEBUG] Raw message received', {
+        messageId: msg.id,
+        peerId: JSON.stringify(peerId),
+        text: (msg.text || (msg as any).message || '').slice(0, 80),
+      });
+    },
+    new NewMessage({}),
+  );
+  logger.info('[DEBUG] Catch-all message handler registered');
+}
+
+/**
  * Register message handlers for multiple channels.
  */
 export function registerMultiChannelHandlers(
