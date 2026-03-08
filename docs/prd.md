@@ -1,4 +1,4 @@
-# PRD: Inky Minaj — Blockchain News Lead Bot
+# PRD: Very Nice Leads — Blockchain News Lead Bot
 
 ## Problem Statement
 
@@ -6,7 +6,7 @@ The sales and BD teams at sqd.ai currently monitor Telegram news channels manual
 
 ## Solution
 
-Build **Inky Minaj**, a Telegram bot system that automatically monitors a configurable list of Telegram channels, uses an LLM to evaluate each message's relevance to sqd.ai's business, and dispatches formatted alerts to subscribed team members when relevant content is found. Each alert includes a relevance score and summary, and users can provide feedback on the bot's accuracy to build a training dataset for future LLM improvements.
+Build **Very Nice Leads**, a Telegram bot system that automatically monitors a configurable list of Telegram channels, uses an LLM to evaluate each message's relevance to sqd.ai's business, and dispatches formatted alerts to subscribed team members when relevant content is found. Each alert includes a relevance score and summary, and users can provide feedback on the bot's accuracy to build a training dataset for future LLM improvements.
 
 The system consists of two Telegram integrations:
 1. A **GramJS MTProto client** (user account) that monitors third-party channels where the bot has no admin access.

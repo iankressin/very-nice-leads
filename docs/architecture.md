@@ -1,4 +1,4 @@
-# System: Inky Minaj — Blockchain News Lead Bot
+# System: Very Nice Leads — Blockchain News Lead Bot
 
 ## Requirements
 
@@ -8,7 +8,7 @@
 2. **Content Analysis** — For each new message, use an LLM to evaluate relevance to blockchain/DeFi ecosystem news (new chains, protocols, data infrastructure)
 3. **Link Extraction** — If a message contains links, fetch the linked content and include it in the LLM analysis
 4. **Structured Scoring** — LLM produces a deterministic JSON output: relevance score (0–10), one-liner summary, and relevance flag
-5. **Notification Dispatch** — If score > 5, forward a formatted alert to all subscribers of the "Inky Minaj" Telegram bot
+5. **Notification Dispatch** — If score > 5, forward a formatted alert to all subscribers of the "Very Nice Leads" Telegram bot
 6. **User Feedback** — Each alert includes inline buttons for "Accurate rating" / "Inaccurate rating"
    - Accurate: saves review with `user_rating = bot_rating`
    - Inaccurate: prompts user for their own 0–10 score, then saves review
@@ -35,7 +35,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        Inky Minaj Bot                               │
+│                        Very Nice Leads Bot                               │
 │                                                                     │
 │  ┌──────────────┐    ┌──────────────┐    ┌───────────────────────┐  │
 │  │   Channel    │    │   Analysis   │    │   Notification        │  │

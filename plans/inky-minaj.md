@@ -1,4 +1,4 @@
-# Plan: Inky Minaj — Blockchain News Lead Bot
+# Plan: Very Nice Leads — Blockchain News Lead Bot
 
 > Source PRD: `docs/prd.md`
 
