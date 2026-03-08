@@ -33,12 +33,14 @@ export function createBot(tokenOrOpts: string | CreateBotOptions): Bot {
   bot.api.setMyCommands([
     { command: 'start', description: 'Subscribe to lead alerts' },
     { command: 'channels', description: 'List monitored channels' },
+    { command: 'subscribers', description: 'List all subscribers (admin only)' },
   ]).catch((err) => {
     logger.error('Failed to set bot commands', { error: err.message });
   });
 
   registerStartCommand(bot, db, adminIds);
   registerChannelsCommand(bot, db);
+  registerSubscribersCommand(bot, db, adminIds);
   registerApprovalCallbacks(bot, db);
   registerFeedbackCallbacks(bot, db);
 
@@ -168,6 +170,34 @@ function registerChannelsCommand(bot: Bot, db: AppDatabase): void {
       .join('\n');
 
     await ctx.reply(`<b>Monitored channels (${channels.length}):</b>\n\n${list}`, {
+      parse_mode: 'HTML',
+    });
+  });
+}
+
+function registerSubscribersCommand(bot: Bot, db: AppDatabase, adminIds: string[]): void {
+  bot.command('subscribers', async (ctx) => {
+    const userId = ctx.from?.id?.toString();
+
+    if (!userId || !adminIds.includes(userId)) {
+      await ctx.reply('This command is only available to admins.');
+      return;
+    }
+
+    const subscribers = await db
+      .select()
+      .from(subscriber);
+
+    if (subscribers.length === 0) {
+      await ctx.reply('No subscribers yet.');
+      return;
+    }
+
+    const list = subscribers
+      .map((s) => `• <code>${s.chatId}</code> — ${s.active ? 'active' : 'inactive'}`)
+      .join('\n');
+
+    await ctx.reply(`<b>Subscribers (${subscribers.length}):</b>\n\n${list}`, {
       parse_mode: 'HTML',
     });
   });
