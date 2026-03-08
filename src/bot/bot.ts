@@ -66,6 +66,7 @@ function registerStartCommand(
     if (isAdmin) {
       // Auto-subscribe admin
       try {
+        const name = getUserDisplayName(ctx.from);
         const existing = await db
           .select()
           .from(subscriber)
@@ -73,11 +74,11 @@ function registerStartCommand(
 
         if (existing.length > 0) {
           await db.update(subscriber)
-            .set({ active: true })
+            .set({ active: true, name })
             .where(eq(subscriber.chatId, chatId));
         } else {
           await db.insert(subscriber)
-            .values({ chatId, active: true });
+            .values({ chatId, name, active: true });
         }
 
         logger.info('Admin auto-subscribed', { userId, chatId });
@@ -194,7 +195,10 @@ function registerSubscribersCommand(bot: Bot, db: AppDatabase, adminIds: string[
     }
 
     const list = subscribers
-      .map((s) => `• <code>${s.chatId}</code> — ${s.active ? 'active' : 'inactive'}`)
+      .map((s) => {
+        const label = s.name ? `${s.name} (<code>${s.chatId}</code>)` : `<code>${s.chatId}</code>`;
+        return `• ${label} — ${s.active ? 'active' : 'inactive'}`;
+      })
       .join('\n');
 
     await ctx.reply(`<b>Subscribers (${subscribers.length}):</b>\n\n${list}`, {
@@ -215,13 +219,16 @@ function registerApprovalCallbacks(bot: Bot, db: AppDatabase): void {
         .from(subscriber)
         .where(eq(subscriber.chatId, chatId));
 
+      const chat = await bot.api.getChat(chatId).catch(() => null);
+      const name = chat ? getUserDisplayName(chat as any) : null;
+
       if (existing.length > 0) {
         await db.update(subscriber)
-          .set({ active: true })
+          .set({ active: true, name })
           .where(eq(subscriber.chatId, chatId));
       } else {
         await db.insert(subscriber)
-          .values({ chatId, active: true });
+          .values({ chatId, name, active: true });
       }
 
       try {
@@ -229,6 +236,7 @@ function registerApprovalCallbacks(bot: Bot, db: AppDatabase): void {
           chatId,
           'Your subscription has been approved! You will now receive lead alerts.',
         );
+
       } catch (sendError) {
         logger.warn('Could not notify approved user', {
           chatId,

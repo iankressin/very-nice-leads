@@ -34,6 +34,7 @@ export const monitoredChannel = sqliteTable('monitored_channel', {
 export const subscriber = sqliteTable('subscriber', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   chatId: text('chat_id').notNull().unique(),
+  name: text('name'),
   active: integer('active', { mode: 'boolean' }).default(true),
   subscribedAt: integer('subscribed_at', { mode: 'timestamp' }).defaultNow(),
 });

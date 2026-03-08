@@ -54,9 +54,12 @@ async function main() {
   await db.run(sql`CREATE TABLE IF NOT EXISTS subscriber (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     chat_id TEXT NOT NULL UNIQUE,
+    name TEXT,
     active INTEGER DEFAULT 1,
     subscribed_at INTEGER DEFAULT (unixepoch())
   )`);
+  // Migration: add name column to existing subscriber tables
+  await db.run(sql`ALTER TABLE subscriber ADD COLUMN name TEXT`).catch(() => {});
 
   logger.info('Database initialized');
 
