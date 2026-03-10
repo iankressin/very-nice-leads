@@ -1,5 +1,7 @@
 import { NewMessage, type NewMessageEvent } from 'telegram/events/index.js';
+import { Raw } from 'telegram/events/Raw.js';
 import { TelegramClient } from 'telegram';
+import { Api } from 'telegram/tl/index.js';
 import { scoreMessage } from '../analysis/scorer.js';
 import { extractUrls, fetchLinks } from '../analysis/link-fetcher.js';
 import { dispatchNotification } from '../bot/notifications.js';
@@ -17,9 +19,9 @@ interface HandlerDeps {
 /**
  * Register a message handler for a single channel.
  *
- * Pre-resolves the channel entity to its numeric peer ID so GramJS's chats
- * filter never needs to call getInputEntity() lazily (which fails silently
- * inside _dispatchUpdate and leaves resolved=false forever).
+ * Resolves the full channel entity (not just InputPeer) and fetches its
+ * latest message to ensure Telegram's server is primed to push updates
+ * for this channel to our session.
  */
 export async function registerMessageHandler(
   client: TelegramClient,
@@ -27,13 +29,35 @@ export async function registerMessageHandler(
 ): Promise<void> {
   const { channel } = deps;
 
-  let chatFilter: (string | bigint)[];
+  let chatFilter: any[];
   try {
-    const entity = await client.getInputEntity(channel) as any;
+    // Use getEntity (not getInputEntity) to fully resolve the channel
+    // and populate the entity cache, which helps GramJS match incoming updates.
+    const entity = await client.getEntity(channel) as any;
+    const channelId = entity.id;
     // Build the marked peer ID: -100<channelId> (Telegram's standard format)
-    const numericId = BigInt(`-100${entity.channelId}`);
+    const numericId = BigInt(`-100${channelId}`);
     chatFilter = [numericId];
-    logger.info('Message handler registered', { channel, resolvedId: numericId.toString() });
+    logger.info('Message handler registered', {
+      channel,
+      resolvedId: numericId.toString(),
+      entityType: entity.className,
+    });
+
+    // Fetch latest message from the channel to prime the update state.
+    // This tells Telegram we're interested in this channel's updates.
+    try {
+      const messages = await client.getMessages(channel, { limit: 1 });
+      logger.info('Primed channel update state', {
+        channel,
+        latestMessageId: messages[0]?.id,
+      });
+    } catch (err) {
+      logger.warn('Could not prime channel update state', {
+        channel,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   } catch (error) {
     // If entity resolution fails at startup we log clearly and skip this channel
     // rather than registering a handler that will silently drop all events.
@@ -58,6 +82,19 @@ export async function registerMultiChannelHandlers(
   channels: Array<{ channelUsername: string; displayName: string | null }>,
   deps: Omit<HandlerDeps, 'channel'>,
 ): Promise<void> {
+  // Register a catch-all raw handler to log any incoming channel message updates.
+  // This helps diagnose whether GramJS is receiving updates at all.
+  client.addEventHandler((update: any) => {
+    if (update instanceof Api.UpdateNewChannelMessage) {
+      const msg = update.message;
+      const peerId = (msg as any)?.peerId;
+      logger.info('Raw channel update received', {
+        messageId: (msg as any)?.id,
+        peerId: peerId ? `${peerId.className}(${peerId.channelId})` : 'unknown',
+      });
+    }
+  }, new Raw({}));
+
   for (const ch of channels) {
     await registerMessageHandler(client, {
       ...deps,
