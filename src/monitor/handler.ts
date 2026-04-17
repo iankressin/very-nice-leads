@@ -5,6 +5,7 @@ import { Api } from 'telegram/tl/index.js';
 import { scoreMessage } from '../analysis/scorer.js';
 import { extractUrls, fetchLinks } from '../analysis/link-fetcher.js';
 import { dispatchNotification } from '../bot/notifications.js';
+import { eq } from 'drizzle-orm';
 import { processedMessage } from '../db/schema.js';
 import { logger } from '../utils/logger.js';
 import type { AppDatabase } from '../db/client.js';
@@ -112,14 +113,24 @@ export async function handleNewMessage(
   event: NewMessageEvent,
   deps: HandlerDeps,
 ): Promise<void> {
+  await processMessage(event.message as any, deps);
+}
+
+/**
+ * Process a single message: dedupe, score via LLM, persist, and dispatch.
+ *
+ * Used by both the push-based NewMessage handler and the fallback poller.
+ * Dedupe is via INSERT OR IGNORE on the unique (channel_id, message_id) index —
+ * whichever caller wins the insert race is the one that proceeds.
+ */
+export async function processMessage(
+  message: any,
+  deps: HandlerDeps,
+): Promise<void> {
   const { db, channel, threshold, sendNotification } = deps;
-  const message = event.message;
 
-  // GramJS uses `.message` for text content (including captions on media messages).
-  // `.text` is a getter that may also return the same value. We check both for safety.
-  const messageText = message.text || (message as any).message || '';
+  const messageText = message.text || message.message || '';
 
-  // Log forwarded messages
   if ((message as any).fwdFrom) {
     logger.info('Processing forwarded message', {
       messageId: message.id,
@@ -128,7 +139,6 @@ export async function handleNewMessage(
     });
   }
 
-  // Skip messages with no text content (e.g. media-only, stickers, etc.)
   if (!messageText.trim()) {
     logger.info('Skipping message with no text content', {
       messageId: message.id,
@@ -137,6 +147,25 @@ export async function handleNewMessage(
     });
     return;
   }
+
+  // Claim the message atomically. If another path (push vs poll) already
+  // inserted it, onConflictDoNothing returns no rows and we skip.
+  const claimed = await db
+    .insert(processedMessage)
+    .values({
+      channelId: channel,
+      messageId: message.id,
+      messageText,
+    })
+    .onConflictDoNothing({
+      target: [processedMessage.channelId, processedMessage.messageId],
+    })
+    .returning();
+
+  if (claimed.length === 0) {
+    return;
+  }
+  const claimedId = claimed[0].id;
 
   try {
     logger.info('Processing message', {
@@ -147,7 +176,6 @@ export async function handleNewMessage(
       isForwarded: !!(message as any).fwdFrom,
     });
 
-    // Extract URLs from message entities and fetch linked content
     const urls = extractUrls(messageText, message.entities as any);
     logger.info('URLs extracted', {
       messageId: message.id,
@@ -161,18 +189,14 @@ export async function handleNewMessage(
     const result = await scoreMessage(messageText, linkContents);
     const dispatched = result.relevance_score > threshold;
 
-    // Persist to DB
-    const [inserted] = await deps.db
-      .insert(processedMessage)
-      .values({
-        channelId: channel,
-        messageId: message.id,
-        messageText,
+    await db
+      .update(processedMessage)
+      .set({
         relevanceScore: result.relevance_score,
         summary: result.summary,
         dispatched,
       })
-      .returning();
+      .where(eq(processedMessage.id, claimedId));
 
     logger.info('Message scored', {
       messageId: message.id,
@@ -186,7 +210,7 @@ export async function handleNewMessage(
 
     if (dispatched) {
       await sendNotification({
-        processedMessageId: inserted.id,
+        processedMessageId: claimedId,
         score: result.relevance_score,
         summary: result.summary,
         sourceChannel: channel,

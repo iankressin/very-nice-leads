@@ -5,6 +5,7 @@ import { createBot } from './bot/bot.js';
 import { setBotInstance, setDbInstance } from './bot/notifications.js';
 import { createMonitorClient } from './monitor/client.js';
 import { registerMultiChannelHandlers } from './monitor/handler.js';
+import { startPolling } from './monitor/poller.js';
 import { dispatchNotification } from './bot/notifications.js';
 import { loadChannelsConfig, seedChannels, getActiveChannels } from './db/seed-channels.js';
 import { logger } from './utils/logger.js';
@@ -33,6 +34,10 @@ async function main() {
     dispatched INTEGER DEFAULT 0,
     processed_at INTEGER DEFAULT (unixepoch())
   )`);
+  // Unique (channel, message_id) enables atomic INSERT OR IGNORE claim so the
+  // push handler and the fallback poller can't double-process a single message.
+  await db.run(sql`CREATE UNIQUE INDEX IF NOT EXISTS processed_message_channel_msg_uq
+    ON processed_message(channel_id, message_id)`);
   await db.run(sql`CREATE TABLE IF NOT EXISTS message_review (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     processed_message_id INTEGER,
@@ -107,6 +112,23 @@ async function main() {
       threshold: config.relevanceThreshold,
       sendNotification: dispatchNotification,
     });
+
+    // Start fallback poller. GramJS push updates can silently stop for
+    // individual channels when their per-channel pts drifts
+    // (channelDifferenceTooLong). Polling guarantees delivery.
+    const pollIntervalMs = Number(process.env.POLL_INTERVAL_MS || '60000');
+    const pollFetchLimit = Number(process.env.POLL_FETCH_LIMIT || '20');
+    startPolling(
+      monitorClient,
+      activeChannels,
+      {
+        db,
+        threshold: config.relevanceThreshold,
+        sendNotification: dispatchNotification,
+      },
+      pollIntervalMs,
+      pollFetchLimit,
+    );
   }
 
   logger.info('Very Nice Leads bot is running', {
